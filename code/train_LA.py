@@ -33,6 +33,7 @@ parser.add_argument('--seed', type=int,  default=1337, help='random seed')
 parser.add_argument('--gpu', type=str,  default='0', help='GPU to use')
 args = parser.parse_args()
 
+#参数设定
 train_data_path = args.root_path
 snapshot_path = "../model/" + args.exp + "/"
 
@@ -56,8 +57,10 @@ if __name__ == "__main__":
     ## make logger file
     if not os.path.exists(snapshot_path):
         os.makedirs(snapshot_path)
+#目录存在就删除
     if os.path.exists(snapshot_path + '/code'):
         shutil.rmtree(snapshot_path + '/code')
+#文件夹copy操作 但不copy .git和__pycache__文件
     shutil.copytree('.', snapshot_path + '/code', shutil.ignore_patterns(['.git','__pycache__']))
 
     logging.basicConfig(filename=snapshot_path+"/log.txt", level=logging.INFO,
@@ -65,9 +68,11 @@ if __name__ == "__main__":
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     logging.info(str(args))
 
+#建立网络 并转至gpu
     net = VNet(n_channels=1, n_classes=num_classes, normalization='batchnorm', has_dropout=True)
     net = net.cuda()
 
+#读取训练数据 transforms.Compose里的类可以自己定义
     db_train = LAHeart(base_dir=train_data_path,
                        split='train',
                        num=16,
@@ -86,6 +91,8 @@ if __name__ == "__main__":
         random.seed(args.seed+worker_id)
     trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True,  num_workers=4, pin_memory=True, worker_init_fn=worker_init_fn)
 
+#def train(self: T, mode: bool = True) -> T:
+#:T 希望传入T类型 ->T 希望返回T类型
     net.train()
     optimizer = optim.SGD(net.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
 
@@ -96,6 +103,7 @@ if __name__ == "__main__":
     max_epoch = max_iterations//len(trainloader)+1
     lr_ = base_lr
     net.train()
+#tqdm 进度条函数 ncols定义进度条长度
     for epoch_num in tqdm(range(max_epoch), ncols=70):
         time1 = time.time()
         for i_batch, sampled_batch in enumerate(trainloader):
@@ -105,6 +113,7 @@ if __name__ == "__main__":
             volume_batch, label_batch = volume_batch.cuda(), label_batch.cuda()
             outputs = net(volume_batch)
 
+#分类任务交叉熵损失
             loss_seg = F.cross_entropy(outputs, label_batch)
             outputs_soft = F.softmax(outputs, dim=1)
             loss_seg_dice = dice_loss(outputs_soft[:, 1, :, :, :], label_batch == 1)
