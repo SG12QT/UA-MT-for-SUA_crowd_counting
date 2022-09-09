@@ -60,10 +60,12 @@ if args.deterministic:
 num_classes = 2
 patch_size = (112, 112, 80)
 
+#更新EMA 中 参数
 def get_current_consistency_weight(epoch):
     # Consistency ramp-up from https://arxiv.org/abs/1610.02242
     return args.consistency * ramps.sigmoid_rampup(epoch, args.consistency_rampup)
 
+#EMA 更新 根据student参数更新teacher参数
 def update_ema_variables(model, ema_model, alpha, global_step):
     # Use the true average until the exponential average is more correct
     alpha = min(1 - 1 / (global_step + 1), alpha)
@@ -83,6 +85,7 @@ if __name__ == "__main__":
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     logging.info(str(args))
 
+#teacher网络不使用反向传播更新参数
     def create_model(ema=False):
         # Network definition
         net = VNet(n_channels=1, n_classes=num_classes, normalization='batchnorm', has_dropout=True)
@@ -141,6 +144,7 @@ if __name__ == "__main__":
             volume_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             volume_batch, label_batch = volume_batch.cuda(), label_batch.cuda()
 
+#噪声 Teacher输入端加入噪声
             noise = torch.clamp(torch.randn_like(volume_batch) * 0.1, -0.2, 0.2)
             ema_inputs = volume_batch + noise
             outputs = model(volume_batch)
@@ -160,6 +164,8 @@ if __name__ == "__main__":
             uncertainty = -1.0*torch.sum(preds*torch.log(preds + 1e-6), dim=1, keepdim=True) #(batch, 1, 112,112,80)
 
             ## calculate the loss
+            #loss_seg是student模型的输出比较
+            #loss_seg loss_seg_dice是对同一个结果 进行softmax分类后再次求loss
             loss_seg = F.cross_entropy(outputs[:labeled_bs], label_batch[:labeled_bs])
             outputs_soft = F.softmax(outputs, dim=1)
             loss_seg_dice = losses.dice_loss(outputs_soft[:labeled_bs, 1, :, :, :], label_batch[:labeled_bs] == 1)
