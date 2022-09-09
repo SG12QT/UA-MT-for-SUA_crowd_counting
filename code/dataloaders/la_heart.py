@@ -20,6 +20,7 @@ class LAHeart(Dataset):
             with open(self._base_dir+'/../test.list', 'r') as f:
                 self.image_list = f.readlines()
         self.image_list = [item.replace('\n','') for item in self.image_list]
+#取前num个图片
         if num is not None:
             self.image_list = self.image_list[:num]
         print("total {} samples".format(len(self.image_list)))
@@ -85,6 +86,7 @@ class RandomCrop(object):
             pw = max((self.output_size[0] - label.shape[0]) // 2 + 3, 0)
             ph = max((self.output_size[1] - label.shape[1]) // 2 + 3, 0)
             pd = max((self.output_size[2] - label.shape[2]) // 2 + 3, 0)
+            #(pw,pw)指前后各填几个 mode='constant'指常量填充
             image = np.pad(image, [(pw, pw), (ph, ph), (pd, pd)], mode='constant', constant_values=0)
             label = np.pad(label, [(pw, pw), (ph, ph), (pd, pd)], mode='constant', constant_values=0)
 
@@ -189,6 +191,7 @@ class TwoStreamBatchSampler(Sampler):
         return len(self.primary_indices) // self.primary_batch_size
 
 def iterate_once(iterable):
+#np.random.permutation 随机排列
     return np.random.permutation(iterable)
 
 
